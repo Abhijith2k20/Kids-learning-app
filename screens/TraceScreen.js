@@ -18,6 +18,7 @@ import { Audio } from 'expo-av';
 import { AlphabetSVG } from '../components/AlphabetSVG';
 import { useDrawing } from '../hooks/useDrawing';
 import { useTraceValidation } from '../hooks/useTraceValidation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,7 +37,7 @@ export const TraceScreen = () => {
     const [showReward, setShowReward] = useState(false); // New state for reward popup
 
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [isCompleted, setIsCompleted] = useState(false);
+    const [isCompleted, setIsCompleted] = useState(false); // Track if current letter is done
     const [feedbackMsg, setFeedbackMsg] = useState('Trace the letter!');
     const [sound, setSound] = useState();
 
@@ -48,6 +49,34 @@ export const TraceScreen = () => {
     const shakeAnim = useRef(new Animated.Value(0)).current;
 
     const currentLetter = ALPHABETS[currentIndex];
+
+    // Load saved progress
+    useEffect(() => {
+        const loadProgress = async () => {
+            try {
+                const savedLetter = await AsyncStorage.getItem('lastTracedLetter');
+                if (savedLetter) {
+                    const index = ALPHABETS.indexOf(savedLetter);
+                    if (index !== -1) {
+                        setCurrentIndex(index);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load progress', error);
+            }
+        };
+        loadProgress();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Save progress helper
+    const saveProgress = async (letter) => {
+        try {
+            await AsyncStorage.setItem('lastTracedLetter', letter);
+        } catch (error) {
+            console.error('Failed to save progress', error);
+        }
+    };
 
     // Load sound
     async function playSuccessSound() {
@@ -140,10 +169,12 @@ export const TraceScreen = () => {
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (currentIndex < ALPHABETS.length - 1) {
-            setCurrentIndex(currentIndex + 1);
+            const nextIndex = currentIndex + 1;
+            setCurrentIndex(nextIndex);
             resetState();
+            await saveProgress(ALPHABETS[nextIndex]);
         }
     };
 
@@ -158,6 +189,11 @@ export const TraceScreen = () => {
         setShowReward(false); // Hide reward
         scaleAnim.setValue(1);
         shakeAnim.setValue(0);
+    };
+
+    const handleFinish = async () => {
+        await saveProgress('A'); // Reset to A
+        router.replace('/');
     };
 
     const handleRewardNext = () => {
@@ -188,7 +224,7 @@ export const TraceScreen = () => {
 
                 <RewardAnimation
                     visible={showReward}
-                    onNext={currentIndex === ALPHABETS.length - 1 ? () => router.replace('/') : handleRewardNext}
+                    onNext={currentIndex === ALPHABETS.length - 1 ? handleFinish : handleRewardNext}
                     message={currentIndex === ALPHABETS.length - 1 ? "All Letters Done!" : "Great Job!"}
                     buttonLabel={currentIndex === ALPHABETS.length - 1 ? "Go to Homepage" : "Next Letter ➡"}
                 />
@@ -256,18 +292,6 @@ export const TraceScreen = () => {
                         onPress={handleClear}
                     >
                         <Text style={styles.buttonText}>Clear</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.button,
-                            styles.nextButton,
-                            (!isCompleted || currentIndex === ALPHABETS.length - 1) && styles.buttonDisabled
-                        ]}
-                        onPress={handleNext}
-                        disabled={!isCompleted || currentIndex === ALPHABETS.length - 1}
-                    >
-                        <Text style={styles.buttonText}>Next →</Text>
                     </TouchableOpacity>
                 </View>
             </View>

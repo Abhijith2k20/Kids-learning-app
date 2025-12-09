@@ -6,6 +6,7 @@ import { usePointsStore } from '../store/pointsStore';
 import { PointsBadge } from '../components/PointsBadge';
 import { RewardAnimation } from '../components/RewardAnimation';
 import { audioPlayer } from '../utils/audioPlayer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +48,36 @@ export const SoundQuizScreen = () => {
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [feedback, setFeedback] = useState(null); // 'correct', 'wrong', null
     const [showReward, setShowReward] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Load saved progress
+    useEffect(() => {
+        const loadProgress = async () => {
+            try {
+                const savedLetter = await AsyncStorage.getItem('lastQuizLetter');
+                if (savedLetter) {
+                    const index = QUESTIONS.findIndex(q => q.answer === savedLetter);
+                    if (index !== -1) {
+                        setCurrentQIndex(index);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load quiz progress', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadProgress();
+    }, []);
+
+    // Save progress helper
+    const saveProgress = async (letter) => {
+        try {
+            await AsyncStorage.setItem('lastQuizLetter', letter);
+        } catch (error) {
+            console.error('Failed to save quiz progress', error);
+        }
+    };
 
     // Static map for audio assets
     const SOUND_MAP = {
@@ -114,20 +145,26 @@ export const SoundQuizScreen = () => {
         }
     };
 
-    const handleNextLevel = () => {
+    const handleNextLevel = async () => {
         setShowReward(false);
         setFeedback(null);
         if (currentQIndex < QUESTIONS.length - 1) {
-            setCurrentQIndex(currentQIndex + 1);
+            const nextIndex = currentQIndex + 1;
+            setCurrentQIndex(nextIndex);
+            await saveProgress(QUESTIONS[nextIndex].answer);
         } else {
-            // Finished all questions
+            // Finished all questions, reset to A
+            await saveProgress('A');
             router.back();
         }
     };
 
     useEffect(() => {
-        playLetterSound();
-    }, [currentQIndex]);
+        if (!isLoading) {
+            playLetterSound();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentQIndex, isLoading]);
 
     const isLastQuestion = currentQIndex === QUESTIONS.length - 1;
 
