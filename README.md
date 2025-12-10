@@ -1,44 +1,195 @@
-# Kids Learning App
+# 🎓 Kids Learn
 
-New features added:
-- Points & Rewards System (Zustand + AsyncStorage)
-- Sound Quiz Game
-- Expo Router Navigation
+An interactive educational app for children to learn the alphabet through tracing, sound matching, and speech recognition.
 
-## Setup
+Built with **Expo** and **React Native**.
 
-1. Install dependencies:
+---
+
+## ✨ Features
+
+### 📝 Trace Letter
+Practice writing the alphabet by tracing letters on screen.
+- Interactive SVG letter paths for all 26 letters (A-Z)
+- Real-time stroke validation
+- Progress persistence with AsyncStorage
+- Visual feedback animations for success/failure
+
+### 🎧 Sound Quiz
+Match phonetic sounds to their corresponding letters.
+- Audio playback for each letter sound
+- Multiple choice answers with 4 options
+- Instant visual feedback (correct/incorrect)
+- Progress tracking through all 26 letters
+
+### 🎤 Speak the Letter
+Practice pronunciation using AI-powered speech recognition.
+- Voice recording with microphone
+- Real-time speech-to-text using AssemblyAI
+- Pronunciation validation and feedback
+- Progress tracking across sessions
+
+### 🏆 Points & Rewards System
+- Earn points for completing activities
+- Persistent score tracking with Zustand + AsyncStorage
+- Visual points badge displayed on home screen
+- Reward animations for achievements
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Expo Go](https://expo.dev/client) app installed on your phone
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/kids-learning-app.git
+   cd kids-learning-app
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install --legacy-peer-deps
    ```
 
-2. Set up environment variables:
+3. **Set up environment variables**
    ```bash
    cp .env.example .env
    ```
-   Then edit `.env` and add your API keys:
-   - `EXPO_PUBLIC_ASSEMBLYAI_API_KEY`: Get from [AssemblyAI](https://www.assemblyai.com/)
+   
+   Edit `.env` and add your API key:
+   ```
+   EXPO_PUBLIC_ASSEMBLYAI_API_KEY=your_api_key_here
+   ```
+   
+   > Get your free API key from [AssemblyAI](https://www.assemblyai.com/)
 
-3. Run the app:
+---
+
+## 📱 Running in Expo Go
+
+1. **Start the development server**
    ```bash
    npx expo start
    ```
 
-## Audio Assets
+2. **Open the app on your device**
 
-Please place the following audio files in `assets/sounds/`:
-- `A.mp3`, `B.mp3`, ..., `Z.mp3` (Letter sounds)
-- `success.mp3` (Positive feedback sound)
-- `wrong.mp3` (Negative feedback sound)
-- `button-3.mp3` (Existing button sound if needed, or replace usage in code)
+   **On Android:**
+   - Open the **Expo Go** app
+   - Tap "Scan QR code"
+   - Scan the QR code shown in your terminal
 
-Note: The app currently uses a placeholder or hardcoded generic sound helper. 
-To fully enable dynamic audio, ensure `utils/audioPlayer.js` is updated to require your map of files, OR use the `SoundQuizScreen.jsx` logic which assumes you might need to adjust based on your exact asset strategy (e.g. `require` cannot be dynamic with variables).
+   **On iPhone:**
+   - Open the **Camera** app
+   - Point it at the QR code in your terminal
+   - Tap the notification that appears to open in Expo Go
 
-## Project Structure
+3. **Alternative: Run on emulator/simulator**
+   - Press `a` in the terminal to open on Android emulator
+   - Press `i` in the terminal to open on iOS simulator
 
-- `app/`: Routing files (`index`, `trace`, `quiz`).
-- `components/`: Reusable UI (`PointsBadge`, `RewardAnimation`).
-- `screens/`: Screen logic.
-- `store/`: State management (`pointsStore`).
-- `utils/`: Helpers (`audioPlayer`).
+---
+
+## 📁 Project Structure
+
+```
+kids-learning-app/
+├── app/                    # Expo Router navigation
+│   ├── _layout.js          # Root layout configuration
+│   ├── index.js            # Home route
+│   ├── trace.js            # Trace letter route
+│   ├── quiz.js             # Sound quiz route
+│   └── speak.js            # Speak letter route
+│
+├── screens/                # Screen components
+│   ├── HomeScreen.jsx      # Main menu with activity cards
+│   ├── TraceScreen.js      # Letter tracing game
+│   ├── SoundQuizScreen.jsx # Audio matching quiz
+│   └── SpeakLetterScreen.jsx # Speech recognition activity
+│
+├── components/             # Reusable UI components
+│   ├── AlphabetSVG.js      # SVG letter paths for tracing
+│   ├── PointsBadge.jsx     # Points display component
+│   └── RewardAnimation.jsx # Celebration animation overlay
+│
+├── store/                  # State management
+│   └── pointsStore.js      # Zustand store for points
+│
+├── utils/                  # Helper functions
+│   └── audioPlayer.js      # Audio playback utilities
+│
+└── assets/                 # Static assets
+    └── sounds/             # Letter sounds (A.mp3 - Z.mp3)
+```
+
+---
+
+## 🎵 Audio Assets
+
+Place the following audio files in `assets/sounds/`:
+
+| File | Description |
+|------|-------------|
+| `A.mp3` - `Z.mp3` | Individual letter phonetic sounds |
+| `success.mp3` | Positive feedback sound effect |
+| `wrong.mp3` | Incorrect answer sound effect |
+
+---
+
+## 🛠️ Tech Stack
+
+- **Expo** - React Native development platform
+- **Expo Router** - File-based navigation
+- **Expo Audio** - Audio recording & playback
+- **React Native** - Cross-platform mobile framework
+- **Zustand** - Lightweight state management
+- **AsyncStorage** - Persistent local storage
+- **React Native SVG** - SVG rendering for letter paths
+- **AssemblyAI** - Speech-to-text API
+
+---
+
+## 📜 Available Scripts
+
+```bash
+npm start          # Start Expo development server
+npm run android    # Run on Android device/emulator
+npm run ios        # Run on iOS device/simulator
+npm run web        # Run in web browser
+```
+
+---
+
+## 🏗️ Building for Production
+
+This project uses [EAS Build](https://docs.expo.dev/build/introduction/) for creating production builds.
+
+```bash
+# Install EAS CLI
+npm install -g eas-cli
+
+# Login to Expo
+eas login
+
+# Build for Android
+eas build --platform android
+
+# Build for iOS
+eas build --platform ios
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the **0BSD License**.
+
+---
+
+Made with ❤️ for little learners
