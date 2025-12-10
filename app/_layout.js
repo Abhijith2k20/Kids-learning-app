@@ -9,6 +9,7 @@ export default function Layout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="trace" />
             <Stack.Screen name="quiz" />
+            <Stack.Screen name="speak" />
         </Stack>
     );
 }

@@ -45,6 +45,20 @@ export const HomeScreen = () => {
                     </View>
                 </TouchableOpacity>
 
+                {/* Speak Card */}
+                <TouchableOpacity
+                    style={[styles.card, styles.speakCard]}
+                    onPress={() => router.push('/speak')}
+                >
+                    <View style={styles.cardContent}>
+                        <Text style={styles.cardIcon}>🎤</Text>
+                        <View>
+                            <Text style={styles.cardTitle}>Speak the Letter</Text>
+                            <Text style={styles.cardDesc}>Practice pronunciation</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
             </ScrollView>
 
 
@@ -92,6 +106,10 @@ const styles = StyleSheet.create({
     quizCard: {
         borderLeftWidth: 8,
         borderLeftColor: '#4ECDC4',
+    },
+    speakCard: {
+        borderLeftWidth: 8,
+        borderLeftColor: '#9C27B0',
     },
     cardContent: {
         flexDirection: 'row',
