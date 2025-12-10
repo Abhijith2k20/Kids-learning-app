@@ -27,8 +27,8 @@ const { width } = Dimensions.get('window');
 // All letters A-Z
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-// AssemblyAI API Key - In production, use environment variables
-const ASSEMBLYAI_API_KEY = 'f600455a272e41cdbdd172d53d6cf1bf';
+// AssemblyAI API Key - loaded from environment variable
+const ASSEMBLYAI_API_KEY = process.env.EXPO_PUBLIC_ASSEMBLYAI_API_KEY || '';
 
 export const SpeakLetterScreen = () => {
     const router = useRouter();

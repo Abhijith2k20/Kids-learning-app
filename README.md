@@ -12,7 +12,14 @@ New features added:
    npm install --legacy-peer-deps
    ```
 
-2. Run the app:
+2. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Then edit `.env` and add your API keys:
+   - `EXPO_PUBLIC_ASSEMBLYAI_API_KEY`: Get from [AssemblyAI](https://www.assemblyai.com/)
+
+3. Run the app:
    ```bash
    npx expo start
    ```
