@@ -300,41 +300,162 @@ export const SpeakLetterScreen = () => {
         }
     };
 
-    // Check if transcription matches the letter
-    const checkLetterMatch = (transcription, letter) => {
-        if (transcription === letter) return true;
+    // ==========================================
+    // SPEECH-TO-LETTER MATCHING LOGIC
+    // ==========================================
 
-        const phoneticMap = {
-            'A': ['A', 'AY', 'EY'],
-            'B': ['B', 'BE', 'BEE', 'BI'],
-            'C': ['C', 'CE', 'SEE', 'SI', 'SEA'],
-            'D': ['D', 'DE', 'DEE', 'DI'],
-            'E': ['E', 'EE', 'I'],
-            'F': ['F', 'EF', 'EFF'],
-            'G': ['G', 'GE', 'GEE', 'JI', 'JEE'],
-            'H': ['H', 'AITCH', 'AYCH', 'EICH'],
-            'I': ['I', 'AI', 'AYE', 'EYE'],
-            'J': ['J', 'JAY', 'JE'],
-            'K': ['K', 'KAY', 'KE'],
-            'L': ['L', 'EL', 'ELL'],
-            'M': ['M', 'EM', 'EMM'],
-            'N': ['N', 'EN', 'ENN'],
-            'O': ['O', 'OH', 'OW'],
-            'P': ['P', 'PE', 'PEE', 'PI'],
-            'Q': ['Q', 'QU', 'CUE', 'KIU', 'KYU', 'QUEUE'],
-            'R': ['R', 'AR', 'ARE'],
-            'S': ['S', 'ES', 'ESS'],
-            'T': ['T', 'TE', 'TEE', 'TI'],
-            'U': ['U', 'YU', 'YOU', 'YOO'],
-            'V': ['V', 'VE', 'VEE', 'VI'],
-            'W': ['W', 'DOUBLE U', 'DOUBLE YOU', 'DOUBLEU', 'DOUBLEYOU'],
-            'X': ['X', 'EX', 'EKS'],
-            'Y': ['Y', 'WY', 'WAI', 'WHY'],
-            'Z': ['Z', 'ZE', 'ZEE', 'ZED', 'ZI'],
+    // Levenshtein distance algorithm for fuzzy matching
+    const levenshteinDistance = (str1, str2) => {
+        const m = str1.length;
+        const n = str2.length;
+        const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = 1 + Math.min(
+                        dp[i - 1][j],     // deletion
+                        dp[i][j - 1],     // insertion
+                        dp[i - 1][j - 1]  // substitution
+                    );
+                }
+            }
+        }
+        return dp[m][n];
+    };
+
+    // Normalize speech - clean and standardize transcription
+    const normalizeSpeech = (text) => {
+        if (!text) return '';
+
+        let normalized = text
+            .toUpperCase()
+            .trim()
+            // Remove punctuation and special characters
+            .replace(/[.,!?'";\-:()]/g, '')
+            // Remove extra spaces
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Common phonetic conversions (multi-word to single)
+        const conversions = {
+            'DOUBLE U': 'W',
+            'DOUBLE YOU': 'W',
+            'DOUBLEYOU': 'W',
+            'DOUBLEU': 'W',
         };
 
+        for (const [from, to] of Object.entries(conversions)) {
+            normalized = normalized.replace(new RegExp(from, 'g'), to);
+        }
+
+        // Strip trailing vowel sounds for common letter pronunciations
+        // CEE -> C, BEE -> B, DEE -> D, etc.
+        const trailingVowelPatterns = [
+            { pattern: /^([BCDFGPTVZ])EE$/, replace: '$1' },
+            { pattern: /^([BCDFGPTVZ])E$/, replace: '$1' },
+            { pattern: /^([BCDFGPTVZ])I$/, replace: '$1' },
+            { pattern: /^E([FLMNSXY])$/, replace: '$1' },  // EF -> F, EL -> L, etc.
+            { pattern: /^A([RY])$/, replace: '$1' },       // AR -> R, AY -> A (careful)
+        ];
+
+        // Only apply if it results in a single letter
+        for (const { pattern, replace } of trailingVowelPatterns) {
+            const result = normalized.replace(pattern, replace);
+            if (result.length === 1 && /^[A-Z]$/.test(result)) {
+                normalized = result;
+                break;
+            }
+        }
+
+        return normalized;
+    };
+
+    // Enhanced phonetic map with extensive variations
+    const phoneticMap = {
+        'A': ['A', 'AY', 'EY', 'EI', 'AE', 'AH', 'LETTER A', 'THE LETTER A'],
+        'B': ['B', 'BE', 'BEE', 'BI', 'BEA', 'BEE BEE', 'LETTER B', 'THE LETTER B'],
+        'C': ['C', 'CE', 'SEE', 'SEA', 'SI', 'CEE', 'THE SEA', 'LETTER C', 'THE LETTER C'],
+        'D': ['D', 'DE', 'DEE', 'DI', 'DEA', 'LETTER D', 'THE LETTER D'],
+        'E': ['E', 'EE', 'EA', 'LETTER E', 'THE LETTER E'],
+        'F': ['F', 'EF', 'EFF', 'IEFF', 'LETTER F', 'THE LETTER F'],
+        'G': ['G', 'GE', 'GEE', 'JI', 'JEE', 'JE', 'GI', 'GEA', 'LETTER G', 'THE LETTER G'],
+        'H': ['H', 'AITCH', 'AYCH', 'EICH', 'EITCH', 'ETCH', 'ACH', 'HAITCH', 'LETTER H', 'THE LETTER H'],
+        'I': ['I', 'AI', 'AYE', 'EYE', 'AY', 'EI', 'LETTER I', 'THE LETTER I'],
+        'J': ['J', 'JAY', 'JE', 'JA', 'JAE', 'GEY', 'LETTER J', 'THE LETTER J'],
+        'K': ['K', 'KAY', 'KE', 'KA', 'KAE', 'CAY', 'LETTER K', 'THE LETTER K'],
+        'L': ['L', 'EL', 'ELL', 'AL', 'ELLE', 'LETTER L', 'THE LETTER L'],
+        'M': ['M', 'EM', 'EMM', 'AM', 'LETTER M', 'THE LETTER M'],
+        'N': ['N', 'EN', 'ENN', 'AN', 'LETTER N', 'THE LETTER N'],
+        'O': ['O', 'OH', 'OW', 'OE', 'OOH', 'LETTER O', 'THE LETTER O'],
+        'P': ['P', 'PE', 'PEE', 'PI', 'PEA', 'LETTER P', 'THE LETTER P'],
+        'Q': ['Q', 'QU', 'CUE', 'KIU', 'KYU', 'QUEUE', 'CU', 'KEW', 'LETTER Q', 'THE LETTER Q'],
+        'R': ['R', 'AR', 'ARE', 'ER', 'OR', 'AHR', 'LETTER R', 'THE LETTER R'],
+        'S': ['S', 'ES', 'ESS', 'AS', 'LETTER S', 'THE LETTER S'],
+        'T': ['T', 'TE', 'TEE', 'TI', 'TEA', 'LETTER T', 'THE LETTER T'],
+        'U': ['U', 'YU', 'YOU', 'YOO', 'EW', 'OO', 'LETTER U', 'THE LETTER U'],
+        'V': ['V', 'VE', 'VEE', 'VI', 'VEA', 'WE', 'LETTER V', 'THE LETTER V'],
+        'W': ['W', 'DOUBLE U', 'DOUBLE YOU', 'DOUBLEU', 'DOUBLEYOU', 'DOUBLE', 'LETTER W', 'THE LETTER W'],
+        'X': ['X', 'EX', 'EKS', 'ECS', 'EGS', 'ECKS', 'AX', 'LETTER X', 'THE LETTER X'],
+        'Y': ['Y', 'WY', 'WAI', 'WHY', 'WI', 'YEE', 'LETTER Y', 'THE LETTER Y'],
+        'Z': ['Z', 'ZE', 'ZEE', 'ZED', 'ZI', 'ZEA', 'ZET', 'LETTER Z', 'THE LETTER Z'],
+    };
+
+    // Check if transcription matches the letter
+    const checkLetterMatch = (transcription, letter) => {
+        // Normalize the transcription
+        const normalized = normalizeSpeech(transcription);
+
+        if (!normalized) return false;
+
+        // 1. Exact match after normalization
+        if (normalized === letter) return true;
+
+        // 2. Check phonetic map (exact match in variations)
         const validSounds = phoneticMap[letter] || [letter];
-        return validSounds.some(sound => transcription.includes(sound));
+        if (validSounds.includes(normalized)) return true;
+
+        // 3. Check if normalized contains any valid sound
+        for (const sound of validSounds) {
+            // For single letters, require exact or very close match
+            if (sound.length === 1) {
+                if (normalized === sound) return true;
+            } else {
+                // For multi-character sounds, check contains
+                if (normalized.includes(sound) || sound.includes(normalized)) {
+                    return true;
+                }
+            }
+        }
+
+        // 4. Levenshtein distance check for fuzzy matching
+        // Allow 1 edit distance for short sounds, 2 for longer ones
+        for (const sound of validSounds) {
+            if (sound.length <= 2) continue; // Skip single/double char for Levenshtein
+
+            const distance = levenshteinDistance(normalized, sound);
+            const threshold = sound.length <= 3 ? 1 : 2;
+
+            if (distance <= threshold) {
+                return true;
+            }
+        }
+
+        // 5. Check if the letter itself appears as a word in the transcription
+        const words = normalized.split(' ');
+        if (words.includes(letter)) return true;
+
+        // 6. First letter match for very short transcriptions
+        if (normalized.length >= 1 && normalized.length <= 2) {
+            if (normalized[0] === letter) return true;
+        }
+
+        return false;
     };
 
     // Show success feedback
@@ -507,7 +628,7 @@ export const SpeakLetterScreen = () => {
             <RewardAnimation
                 visible={showReward}
                 onNext={handleNextLetter}
-                message={isLastLetter ? "All Letters Complete!" : "Great Pronunciation!"}
+                message={isLastLetter ? "All Letters Complete!" : "Great Job!"}
                 buttonLabel={isLastLetter ? "Go to Homepage" : "Next Letter ➡"}
             />
         </View>
