@@ -53,8 +53,22 @@ export const HomeScreen = () => {
                     <View style={styles.cardContent}>
                         <Text style={styles.cardIcon}>🎤</Text>
                         <View>
-                            <Text style={styles.cardTitle}>Speak the Letter</Text>
+                            <Text style={styles.cardTitle}>Read Aloud</Text>
                             <Text style={styles.cardDesc}>Practice pronunciation</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
+                {/* Homophones Card */}
+                <TouchableOpacity
+                    style={[styles.card, styles.homophonesCard]}
+                    onPress={() => router.push('/homophones')}
+                >
+                    <View style={styles.cardContent}>
+                        <Text style={styles.cardIcon}>🔗</Text>
+                        <View style={styles.cardTextContainer}>
+                            <Text style={styles.cardTitle}>Homophones</Text>
+                            <Text style={styles.cardDesc}>Match similar sounds</Text>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -111,9 +125,16 @@ const styles = StyleSheet.create({
         borderLeftWidth: 8,
         borderLeftColor: '#9C27B0',
     },
+    homophonesCard: {
+        borderLeftWidth: 8,
+        borderLeftColor: '#FF9800',
+    },
     cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    cardTextContainer: {
+        flex: 1,
     },
     cardIcon: {
         fontSize: 50,

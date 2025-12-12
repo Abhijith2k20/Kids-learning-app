@@ -128,19 +128,6 @@ kids-learning-app/
     └── sounds/             # Letter sounds (A.mp3 - Z.mp3)
 ```
 
----
-
-## 🎵 Audio Assets
-
-Place the following audio files in `assets/sounds/`:
-
-| File | Description |
-|------|-------------|
-| `A.mp3` - `Z.mp3` | Individual letter phonetic sounds |
-| `success.mp3` | Positive feedback sound effect |
-| `wrong.mp3` | Incorrect answer sound effect |
-
----
 
 ## 🛠️ Tech Stack
 
@@ -192,4 +179,4 @@ This project is licensed under the **0BSD License**.
 
 ---
 
-Made with ❤️ for little learners
+

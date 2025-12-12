@@ -10,6 +10,7 @@ export default function Layout() {
             <Stack.Screen name="trace" />
             <Stack.Screen name="quiz" />
             <Stack.Screen name="speak" />
+            <Stack.Screen name="homophones" />
         </Stack>
     );
 }

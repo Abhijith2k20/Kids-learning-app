@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Dimensions } from 'react-native';
-import { Audio } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,29 +54,31 @@ export const RewardAnimation = ({ visible, onNext, message = "Great Job!", butto
     return (
         <Modal transparent visible={visible} animationType="none">
             <View style={styles.overlay}>
-                {/* Confetti */}
-                {confettiAnims.map((anim, index) => {
-                    const rotation = anim.rotate.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0deg', '360deg']
-                    });
-                    return (
-                        <Animated.View
-                            key={index}
-                            style={[
-                                styles.confetti,
-                                {
-                                    backgroundColor: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43'][index % 4],
-                                    transform: [
-                                        { translateY: anim.y },
-                                        { translateX: anim.x },
-                                        { rotate: rotation }
-                                    ]
-                                }
-                            ]}
-                        />
-                    );
-                })}
+                {/* Confetti - with pointerEvents none so they don't block touches */}
+                <View style={styles.confettiContainer} pointerEvents="none">
+                    {confettiAnims.map((anim, index) => {
+                        const rotation = anim.rotate.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '360deg']
+                        });
+                        return (
+                            <Animated.View
+                                key={index}
+                                style={[
+                                    styles.confetti,
+                                    {
+                                        backgroundColor: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43'][index % 4],
+                                        transform: [
+                                            { translateY: anim.y },
+                                            { translateX: anim.x },
+                                            { rotate: rotation }
+                                        ]
+                                    }
+                                ]}
+                            />
+                        );
+                    })}
+                </View>
 
                 {/* Popup Card */}
                 <Animated.View style={[styles.popup, { transform: [{ scale: scaleAnim }] }]}>
@@ -85,7 +86,11 @@ export const RewardAnimation = ({ visible, onNext, message = "Great Job!", butto
                     <Text style={styles.title}>{message}</Text>
                     <Text style={styles.subtitle}>You earned 10 Stars!</Text>
 
-                    <TouchableOpacity style={styles.button} onPress={onNext}>
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={onNext}
+                        activeOpacity={0.7}
+                    >
                         <Text style={styles.buttonText}>{buttonLabel}</Text>
                     </TouchableOpacity>
                 </Animated.View>
@@ -101,6 +106,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    confettiContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
     popup: {
         width: width * 0.8,
         backgroundColor: 'white',
@@ -112,6 +124,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 5,
         elevation: 10,
+        zIndex: 100,
     },
     icon: {
         fontSize: 60,
@@ -130,11 +143,13 @@ const styles = StyleSheet.create({
     },
     button: {
         backgroundColor: '#FF6B6B',
-        paddingVertical: 15,
+        paddingVertical: 18,
         paddingHorizontal: 40,
         borderRadius: 30,
         width: '100%',
         alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 56,
     },
     buttonText: {
         color: 'white',
