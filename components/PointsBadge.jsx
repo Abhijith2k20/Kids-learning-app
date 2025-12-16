@@ -1,52 +1,77 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { usePointsStore } from '../store/pointsStore';
 
 export const PointsBadge = () => {
     const points = usePointsStore((state) => state.points);
     const loaded = usePointsStore((state) => state.loaded);
 
-    // Simple pulse animation on change could be added, but basic for now.
-
-    if (!loaded && points === 0) {
-        // Optional loading state, or just show 0
-    }
-
     return (
         <View style={styles.container}>
-            <Text style={styles.icon}>⭐</Text>
-            <Text style={styles.text}>Points: {points}</Text>
+            {/* Folded corner effect */}
+            <View style={styles.foldedCorner} />
+
+            {/* Points display */}
+            <Text style={styles.pointsNumber}>{points}</Text>
+            <Text style={styles.starsLabel}>Stars</Text>
+
+            {/* Small star icon in top right */}
+            <View style={styles.starContainer}>
+                <Text style={styles.starIcon}>⭐</Text>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
+        backgroundColor: '#FFEB3B', // Bright yellow sticky note
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        minWidth: 70,
         alignItems: 'center',
-        backgroundColor: '#FFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        shadowColor: "#000",
+        position: 'relative',
+        shadowColor: '#000',
         shadowOffset: {
-            width: 0,
+            width: 2,
             height: 2,
         },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.25,
         shadowRadius: 3.84,
         elevation: 5,
+        transform: [{ rotate: '5deg' }],
     },
-    icon: {
-        fontSize: 16,
-        marginRight: 6,
+    foldedCorner: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+        borderStyle: 'solid',
+        borderWidth: 12,
+        borderTopColor: '#F5F5DC', // Match background
+        borderRightColor: '#F5F5DC',
+        borderBottomColor: '#E6D32A', // Darker yellow for fold
+        borderLeftColor: '#E6D32A',
     },
-    text: {
-        fontSize: 16,
+    pointsNumber: {
+        fontSize: 20,
         fontWeight: 'bold',
-        color: '#FFD700', // Gold color
-        textShadowColor: 'rgba(0, 0, 0, 0.1)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1
-    }
+        color: '#333',
+        lineHeight: 24,
+    },
+    starsLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+        fontStyle: 'italic',
+    },
+    starContainer: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+    },
+    starIcon: {
+        fontSize: 16,
+    },
 });

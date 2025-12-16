@@ -10,7 +10,8 @@ import {
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Line, Path } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 import { usePointsStore } from '../store/pointsStore';
 import { PointsBadge } from '../components/PointsBadge';
 import { RewardAnimation } from '../components/RewardAnimation';
@@ -20,15 +21,18 @@ import {
 } from '../data/homophones/homophonesData';
 
 const { width, height } = Dimensions.get('window');
-const PILL_WIDTH = width * 0.42;
-const PILL_HEIGHT = 55;
-const VERTICAL_GAP = 18;
+const CARD_WIDTH = width * 0.28;
+const CARD_HEIGHT = 60;
+const VERTICAL_GAP = 25;
 const CONNECTION_THRESHOLD = 120;
-const BORDER_RADIUS = PILL_HEIGHT / 2;
 
-// Theme colors matching other templates
-const LEFT_COLORS = ['#FF6B6B', '#A8E6CF', '#FFD93D', '#FF6B6B'];
-const RIGHT_COLORS = ['#A8E6CF', '#FFD93D', '#FF6B6B', '#A8E6CF'];
+// Sticky note colors matching the design image
+const STICKY_COLORS = [
+    { bg: '#FFF59D', shadow: '#E6DC8D' }, // Yellow
+    { bg: '#A5D6A7', shadow: '#8FC291' }, // Green
+    { bg: '#F48FB1', shadow: '#DB7FA0' }, // Pink
+    { bg: '#FFCC80', shadow: '#E6B770' }, // Orange
+];
 
 export const HomophonesScreen = () => {
     const router = useRouter();
@@ -62,6 +66,25 @@ export const HomophonesScreen = () => {
     const pairsLengthRef = useRef(pairs.length);
     useEffect(() => { pairsLengthRef.current = pairs.length; }, [pairs.length]);
 
+    // Render grid lines for graph paper background
+    const renderGridLines = () => {
+        const lines = [];
+        const gridSize = 20;
+        // Vertical lines
+        for (let i = 0; i < Math.ceil(width / gridSize); i++) {
+            lines.push(
+                <View key={`v-${i}`} style={[styles.gridLineVertical, { left: i * gridSize }]} />
+            );
+        }
+        // Horizontal lines
+        for (let i = 0; i < Math.ceil(height / gridSize); i++) {
+            lines.push(
+                <View key={`h-${i}`} style={[styles.gridLineHorizontal, { top: i * gridSize }]} />
+            );
+        }
+        return lines;
+    };
+
     useEffect(() => {
         if (pairs.length > 0) {
             // Reset state for new exercise
@@ -80,12 +103,9 @@ export const HomophonesScreen = () => {
             }
 
             // Ensure no item is in its original position (derangement)
-            // Check and fix any items that are in their original position
             for (let i = 0; i < shuffled.length; i++) {
                 if (shuffled[i].originalIndex === i) {
-                    // Find another position to swap with
                     let swapIndex = (i + 1) % shuffled.length;
-                    // Make sure swap doesn't create another fixed point
                     while (shuffled[swapIndex].originalIndex === i) {
                         swapIndex = (swapIndex + 1) % shuffled.length;
                     }
@@ -145,7 +165,7 @@ export const HomophonesScreen = () => {
                 }
             };
 
-            // Left pills: Connect from RIGHT edge (the rounded part)
+            // Left cards: Connect from RIGHT edge
             leftPillRefs.current.forEach((ref, i) => {
                 if (ref) {
                     ref.measure((dx, dy, dw, dh, dpx, dpy) => {
@@ -160,7 +180,7 @@ export const HomophonesScreen = () => {
                 }
             });
 
-            // Right pills: Connect from LEFT edge (the rounded part)
+            // Right cards: Connect from LEFT edge
             rightPillRefs.current.forEach((ref, i) => {
                 if (ref) {
                     ref.measure((dx, dy, dw, dh, dpx, dpy) => {
@@ -220,6 +240,10 @@ export const HomophonesScreen = () => {
                 return updated;
             });
             setConnections(prev => [...prev, { leftIndex: leftIdx, rightIndex: rightIdx, correct: true }]);
+            // Game-like haptic celebration pattern
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
             addPoints(10);
         } else {
             setConnections(prev => [...prev, { leftIndex: leftIdx, rightIndex: rightIdx, correct: false }]);
@@ -236,11 +260,9 @@ export const HomophonesScreen = () => {
         const MIN_DRAG_DISTANCE = 20;
 
         return PanResponder.create({
-            // Only set responder after movement detected (allows taps to pass through)
             onStartShouldSetPanResponder: () => false,
             onMoveShouldSetPanResponder: (e, gestureState) => {
                 if (matchedPairsRef.current.includes(leftIdx)) return false;
-                // Only capture if there's significant movement
                 const distance = Math.sqrt(Math.pow(gestureState.dx, 2) + Math.pow(gestureState.dy, 2));
                 return distance > 10;
             },
@@ -300,15 +322,20 @@ export const HomophonesScreen = () => {
             await AsyncStorage.setItem(HOMOPHONES_PROGRESS_KEY, next.toString());
         } else {
             await AsyncStorage.setItem(HOMOPHONES_PROGRESS_KEY, '0');
-            router.back();
+            router.replace('/');
         }
     };
 
     const isLastExercise = currentExercise === HOMOPHONES_EXERCISES.length - 1;
+    const progressPercent = (matchedPairs.length / pairs.length) * 100;
 
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
+                {/* Grid background */}
+                <View style={styles.gridBackground}>
+                    {renderGridLines()}
+                </View>
                 <Text style={styles.loadingText}>Loading...</Text>
             </View>
         );
@@ -316,19 +343,23 @@ export const HomophonesScreen = () => {
 
     return (
         <View style={styles.container}>
+            {/* Grid paper background */}
+            <View style={styles.gridBackground}>
+                {renderGridLines()}
+            </View>
 
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Text style={styles.backArrow}>←</Text>
+                    <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
                 <PointsBadge />
             </View>
 
-            {/* Instruction */}
-            <View style={styles.subHeader}>
-                <Text style={styles.title}>Match the Homophones!</Text>
-                <Text style={styles.subtitle}>Tap to hear • Drag to connect matching words</Text>
+            {/* Title */}
+            <View style={styles.titleContainer}>
+                <Text style={styles.title}>Match the{"\n"}Homophones! </Text>
             </View>
 
             {/* Game Container */}
@@ -337,7 +368,7 @@ export const HomophonesScreen = () => {
                 ref={gameContainerRef}
                 onLayout={measurePills}
             >
-                {/* SVG for connection lines */}
+                {/* SVG for connection lines - sketchy arrow style */}
                 <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
                     {connections
                         .filter(c => c.correct)
@@ -345,17 +376,31 @@ export const HomophonesScreen = () => {
                             const l = pillPositions.left[c.leftIndex];
                             const r = pillPositions.right[c.rightIndex];
                             if (!l || !r) return null;
+                            // Draw line with arrow
+                            const arrowSize = 10;
+                            const angle = Math.atan2(r.y - l.y, r.x - l.x);
+                            const arrowX1 = r.x - arrowSize * Math.cos(angle - Math.PI / 6);
+                            const arrowY1 = r.y - arrowSize * Math.sin(angle - Math.PI / 6);
+                            const arrowX2 = r.x - arrowSize * Math.cos(angle + Math.PI / 6);
+                            const arrowY2 = r.y - arrowSize * Math.sin(angle + Math.PI / 6);
                             return (
-                                <Line
-                                    key={`${c.leftIndex}-${c.rightIndex}`}
-                                    x1={l.x}
-                                    y1={l.y}
-                                    x2={r.x}
-                                    y2={r.y}
-                                    stroke="#2C3E50"
-                                    strokeWidth={4}
-                                    strokeLinecap="round"
-                                />
+                                <React.Fragment key={`${c.leftIndex}-${c.rightIndex}`}>
+                                    <Line
+                                        x1={l.x}
+                                        y1={l.y}
+                                        x2={r.x}
+                                        y2={r.y}
+                                        stroke="#2C3E50"
+                                        strokeWidth={3}
+                                        strokeLinecap="round"
+                                    />
+                                    <Path
+                                        d={`M ${r.x} ${r.y} L ${arrowX1} ${arrowY1} M ${r.x} ${r.y} L ${arrowX2} ${arrowY2}`}
+                                        stroke="#2C3E50"
+                                        strokeWidth={3}
+                                        strokeLinecap="round"
+                                    />
+                                </React.Fragment>
                             );
                         })}
                     {activeLineEnd && pillPositions.left[activeLineEnd.leftIndex] && (
@@ -365,70 +410,85 @@ export const HomophonesScreen = () => {
                             x2={activeLineEnd.x}
                             y2={activeLineEnd.y}
                             stroke="#2C3E50"
-                            strokeWidth={4}
+                            strokeWidth={3}
                             strokeLinecap="round"
+                            strokeDasharray="5,5"
                         />
                     )}
                 </Svg>
 
-                {/* Left Column - Pills with flat left edge, round right edge */}
+                {/* Left Column - Sticky notes */}
                 <View style={styles.leftColumn}>
                     {pairs.map((p, i) => {
-                        const color = LEFT_COLORS[i % LEFT_COLORS.length];
+                        const colorScheme = STICKY_COLORS[i % STICKY_COLORS.length];
                         const matched = matchedPairs.includes(i);
                         return (
                             <View
                                 key={`left-${i}`}
                                 ref={r => leftPillRefs.current[i] = r}
                                 style={[
-                                    styles.pill,
-                                    styles.leftPill,
-                                    { backgroundColor: color },
-                                    matched && styles.matchedPill,
+                                    styles.stickyNote,
+                                    styles.leftSticky,
+                                    { backgroundColor: colorScheme.bg },
+                                    matched && styles.matchedNote,
                                 ]}
                                 {...getPan(i).panHandlers}
                             >
+                                <View style={[styles.stickyFold, styles.leftFold, { borderBottomColor: colorScheme.shadow }]} />
                                 <TouchableOpacity
                                     onPress={() => speakWord(p.leftWord)}
-                                    style={styles.pillTouchable}
+                                    style={styles.stickyTouchable}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={styles.pillText}>{p.leftWord}</Text>
+                                    <Text style={styles.stickyText}>{p.leftWord}</Text>
                                 </TouchableOpacity>
                             </View>
                         );
                     })}
                 </View>
 
-                {/* Right Column - Pills with round left edge, flat right edge */}
+                {/* Right Column - Sticky notes */}
                 <View style={styles.rightColumn}>
                     {shuffledRightItems.map((p, i) => {
-                        const color = RIGHT_COLORS[i % RIGHT_COLORS.length];
+                        const colorScheme = STICKY_COLORS[p.originalIndex % STICKY_COLORS.length];
                         const matched = matchedPairs.includes(p.originalIndex);
                         return (
                             <TouchableOpacity
                                 key={`right-${i}`}
                                 ref={r => rightPillRefs.current[i] = r}
                                 style={[
-                                    styles.pill,
-                                    styles.rightPill,
-                                    { backgroundColor: color },
-                                    matched && styles.matchedPill,
+                                    styles.stickyNote,
+                                    styles.rightSticky,
+                                    { backgroundColor: colorScheme.bg },
+                                    matched && styles.matchedNote,
                                 ]}
                                 onPress={() => speakWord(p.rightWord)}
                                 activeOpacity={0.7}
                             >
-                                <Text style={styles.pillText}>{p.rightWord}</Text>
+                                <View style={[styles.stickyFold, styles.rightFold, { borderBottomColor: colorScheme.shadow }]} />
+                                <Text style={styles.stickyText}>{p.rightWord}</Text>
                             </TouchableOpacity>
                         );
                     })}
                 </View>
             </View>
 
-            {/* Progress */}
-            <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>
-                    {currentExercise + 1}/{HOMOPHONES_EXERCISES.length}
+            {/* Progress Bar */}
+            <View style={styles.progressSection}>
+                <View style={styles.progressBarContainer}>
+                    <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+                </View>
+                {matchedPairs.length === pairs.length && (
+                    <View style={styles.checkmark}>
+                        <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                )}
+            </View>
+
+            {/* Exercise Count */}
+            <View style={styles.exerciseCount}>
+                <Text style={styles.exerciseCountText}>
+                    Exercise {currentExercise + 1} of {HOMOPHONES_EXERCISES.length}
                 </Text>
             </View>
 
@@ -436,7 +496,7 @@ export const HomophonesScreen = () => {
                 visible={showReward}
                 onNext={handleNext}
                 message={isLastExercise ? 'All Done!' : 'Great Job!'}
-                buttonLabel={isLastExercise ? 'Go to Homepage' : 'Next ➡'}
+                buttonLabel={isLastExercise ? 'Homepage' : 'Next ➡'}
             />
         </View>
     );
@@ -445,13 +505,36 @@ export const HomophonesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFF9E6',
+        backgroundColor: '#F5F5E8', // Cream/off-white paper color
+    },
+    gridBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    gridLineVertical: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        width: 1,
+        backgroundColor: '#C8E6C9',
+        opacity: 0.5,
+    },
+    gridLineHorizontal: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: '#C8E6C9',
+        opacity: 0.5,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFF9E6',
+        backgroundColor: '#F5F5E8',
     },
     loadingText: {
         fontSize: 20,
@@ -462,39 +545,48 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 55,
-        marginBottom: 20,
+        paddingHorizontal: 15,
+        paddingTop: 50,
+        marginBottom: 10,
+        zIndex: 10,
     },
     backButton: {
-        padding: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+    },
+    backArrow: {
+        fontSize: 20,
+        color: '#5A8BC4',
+        fontWeight: 'bold',
+        marginRight: 4,
     },
     backText: {
         fontSize: 18,
-        color: '#2C3E50',
-        fontWeight: 'bold',
+        color: '#5A8BC4',
+        fontWeight: '600',
     },
-    subHeader: {
+    titleContainer: {
         alignItems: 'center',
-        paddingVertical: 10,
+        marginBottom: 15,
         paddingHorizontal: 20,
     },
     title: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        color: '#2C3E50',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#7F8C8D',
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#1565C0', // Blue color
         textAlign: 'center',
+        fontStyle: 'italic',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     gameContainer: {
         flex: 1,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingHorizontal: 5,
         position: 'relative',
     },
     leftColumn: {
@@ -505,58 +597,102 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         justifyContent: 'center',
     },
-    pill: {
-        width: PILL_WIDTH,
-        height: PILL_HEIGHT,
+    stickyNote: {
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: VERTICAL_GAP,
-        borderWidth: 3,
-        borderColor: 'rgba(255,255,255,0.6)',
+        borderRadius: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
+        shadowOffset: { width: 2, height: 3 },
+        shadowOpacity: 0.2,
         shadowRadius: 3,
-        elevation: 3,
+        elevation: 4,
+        position: 'relative',
     },
-    leftPill: {
-        borderTopLeftRadius: 0,
-        borderBottomLeftRadius: 0,
-        borderTopRightRadius: BORDER_RADIUS,
-        borderBottomRightRadius: BORDER_RADIUS,
-        borderLeftWidth: 0,
-        paddingLeft: 15,
+    leftSticky: {
+        marginLeft: 0,
     },
-    rightPill: {
-        borderTopLeftRadius: BORDER_RADIUS,
-        borderBottomLeftRadius: BORDER_RADIUS,
-        borderTopRightRadius: 0,
-        borderBottomRightRadius: 0,
-        borderRightWidth: 0,
-        paddingRight: 15,
+    rightSticky: {
+        marginRight: 0,
     },
-    matchedPill: {
+    stickyFold: {
+        position: 'absolute',
+        width: 0,
+        height: 0,
+        borderStyle: 'solid',
+    },
+    leftFold: {
+        right: -1,
+        bottom: -1,
+        borderWidth: 12,
+        borderTopColor: 'transparent',
+        borderRightColor: '#F5F5E8',
+        borderLeftColor: 'transparent',
+    },
+    rightFold: {
+        left: -1,
+        bottom: -1,
+        borderWidth: 12,
+        borderTopColor: 'transparent',
+        borderLeftColor: '#F5F5E8',
+        borderRightColor: 'transparent',
+    },
+    matchedNote: {
         opacity: 0.6,
     },
-    pillTouchable: {
+    stickyTouchable: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         width: '100%',
     },
-    pillText: {
-        fontSize: 24,
+    stickyText: {
+        fontSize: 20,
         fontWeight: 'bold',
-        color: '#2C3E50',
+        color: '#333',
     },
-    progressContainer: {
-        paddingVertical: 25,
+    progressSection: {
+        flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
     },
-    progressText: {
+    progressBarContainer: {
+        flex: 1,
+        height: 20,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 10,
+        overflow: 'hidden',
+    },
+    progressBar: {
+        height: '100%',
+        backgroundColor: '#81C784',
+        borderRadius: 10,
+    },
+    checkmark: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: '#81C784',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
+    },
+    checkmarkText: {
         fontSize: 18,
+        color: '#FFF',
         fontWeight: 'bold',
-        color: '#2C3E50',
+    },
+    exerciseCount: {
+        alignItems: 'center',
+        paddingBottom: 25,
+    },
+    exerciseCountText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#666',
     },
 });
 

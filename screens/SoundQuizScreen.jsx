@@ -6,6 +6,7 @@ import { usePointsStore } from '../store/pointsStore';
 import { PointsBadge } from '../components/PointsBadge';
 import { RewardAnimation } from '../components/RewardAnimation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -39,34 +40,63 @@ const QUESTIONS = [
     { answer: 'Z', options: ['Z', 'S', 'N', 'M'] },
 ];
 
+// Sticky note colors matching the homophones design
+const STICKY_COLORS = [
+    { bg: '#FFF59D', shadow: '#E6DC8D' }, // Yellow
+    { bg: '#A5D6A7', shadow: '#8FC291' }, // Green
+    { bg: '#F48FB1', shadow: '#DB7FA0' }, // Pink
+    { bg: '#FFCC80', shadow: '#E6B770' }, // Orange
+];
+
 export const SoundQuizScreen = () => {
     const router = useRouter();
     const addPoints = usePointsStore((state) => state.addPoints);
 
+    const [randomizedQuestions, setRandomizedQuestions] = useState([]);
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [feedback, setFeedback] = useState(null); // 'correct', 'wrong', null
     const [wrongLetter, setWrongLetter] = useState(null); // Track wrong selection
     const [showReward, setShowReward] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Load saved progress
+    // Render horizontal lines for notebook effect
+    const renderNotebookLines = () => {
+        const lines = [];
+        for (let i = 0; i < 35; i++) {
+            lines.push(
+                <View key={i} style={styles.notebookLine} />
+            );
+        }
+        return lines;
+    };
+
+    // Fisher-Yates shuffle algorithm
+    const shuffleArray = (array) => {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    };
+
+    // Initialize randomized questions on mount
     useEffect(() => {
-        const loadProgress = async () => {
+        const initQuiz = async () => {
             try {
-                const savedLetter = await AsyncStorage.getItem('lastQuizLetter');
-                if (savedLetter) {
-                    const index = QUESTIONS.findIndex(q => q.answer === savedLetter);
-                    if (index !== -1) {
-                        setCurrentQIndex(index);
-                    }
-                }
+                // Shuffle questions and also shuffle options within each question
+                const shuffledQuestions = shuffleArray(QUESTIONS).map(q => ({
+                    ...q,
+                    options: shuffleArray(q.options)
+                }));
+                setRandomizedQuestions(shuffledQuestions);
             } catch (error) {
-                console.error('Failed to load quiz progress', error);
+                console.error('Failed to initialize quiz', error);
             } finally {
                 setIsLoading(false);
             }
         };
-        loadProgress();
+        initQuiz();
     }, []);
 
     // Save progress helper
@@ -78,7 +108,7 @@ export const SoundQuizScreen = () => {
         }
     };
 
-    const currentQ = QUESTIONS[currentQIndex];
+    const currentQ = randomizedQuestions[currentQIndex];
 
     // Play letter sound using text-to-speech
     const playLetterSound = () => {
@@ -100,6 +130,10 @@ export const SoundQuizScreen = () => {
             // Correct
             setFeedback('correct');
             setWrongLetter(null);
+            // Game-like haptic celebration pattern
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
             addPoints(10);
             setTimeout(() => {
                 setShowReward(true);
@@ -114,24 +148,24 @@ export const SoundQuizScreen = () => {
     const handleNextLevel = async () => {
         setShowReward(false);
         setFeedback(null);
-        if (currentQIndex < QUESTIONS.length - 1) {
-            const nextIndex = currentQIndex + 1;
-            setCurrentQIndex(nextIndex);
-            await saveProgress(QUESTIONS[nextIndex].answer);
+        setWrongLetter(null);
+        if (currentQIndex < randomizedQuestions.length - 1) {
+            setCurrentQIndex(currentQIndex + 1);
         } else {
-            // Finished all questions, reset to A
-            await saveProgress('A');
+            // Finished all questions, go home
+            router.replace('/');
         }
     };
 
-    const isLastQuestion = currentQIndex === QUESTIONS.length - 1;
-
-    // Border colors for the 4 option cards
-    const CARD_COLORS = ['#4A90D9', '#5CB85C', '#F0AD4E', '#D9534F'];
+    const isLastQuestion = currentQIndex === randomizedQuestions.length - 1;
 
     if (isLoading) {
         return (
             <View style={styles.container}>
+                {/* Notebook background */}
+                <View style={styles.notebookBackground}>
+                    {renderNotebookLines()}
+                </View>
                 <Text style={styles.loadingText}>Loading...</Text>
             </View>
         );
@@ -139,10 +173,16 @@ export const SoundQuizScreen = () => {
 
     return (
         <View style={styles.container}>
+            {/* Notebook background with lines */}
+            <View style={styles.notebookBackground}>
+                {renderNotebookLines()}
+            </View>
+
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Text style={styles.backArrow}>←</Text>
+                    <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
                 <PointsBadge />
             </View>
@@ -168,14 +208,14 @@ export const SoundQuizScreen = () => {
                     {currentQ.options.map((letter, index) => {
                         const isCorrect = feedback === 'correct' && letter === currentQ.answer;
                         const isWrong = wrongLetter === letter;
-                        const borderColor = CARD_COLORS[index % CARD_COLORS.length];
+                        const colorScheme = STICKY_COLORS[index % STICKY_COLORS.length];
 
                         return (
                             <TouchableOpacity
                                 key={letter}
                                 style={[
-                                    styles.optionCard,
-                                    { borderColor: borderColor },
+                                    styles.stickyNote,
+                                    { backgroundColor: colorScheme.bg },
                                     isCorrect && styles.correctCard,
                                     isWrong && styles.wrongCard,
                                 ]}
@@ -183,6 +223,8 @@ export const SoundQuizScreen = () => {
                                 activeOpacity={0.7}
                                 disabled={feedback === 'correct'}
                             >
+                                {/* Folded corner effect */}
+                                <View style={[styles.stickyFold, { borderBottomColor: colorScheme.shadow }]} />
                                 <Text style={[
                                     styles.letterText,
                                     isCorrect && styles.correctLetterText,
@@ -212,7 +254,7 @@ export const SoundQuizScreen = () => {
                 visible={showReward}
                 onNext={handleNextLevel}
                 message={isLastQuestion ? "Quiz Complete!" : "Correct!"}
-                buttonLabel={isLastQuestion ? "Go to Homepage" : "Next Letter ➡"}
+                buttonLabel={isLastQuestion ? "Homepage" : "Next ➡"}
             />
         </View>
     );
@@ -221,8 +263,22 @@ export const SoundQuizScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F7FA',
-        paddingTop: 55,
+        backgroundColor: '#F8F4E8', // Cream/off-white paper color
+    },
+    notebookBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingTop: 100,
+    },
+    notebookLine: {
+        height: 1,
+        backgroundColor: '#B8D4E8',
+        marginBottom: 26,
+        marginLeft: 0,
+        opacity: 0.7,
     },
     loadingText: {
         fontSize: 20,
@@ -234,52 +290,72 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 20,
+        paddingHorizontal: 15,
+        paddingTop: 50,
+        marginBottom: 15,
+        zIndex: 10,
     },
     backButton: {
-        padding: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+    },
+    backArrow: {
+        fontSize: 20,
+        color: '#5A8BC4',
+        fontWeight: 'bold',
+        marginRight: 4,
     },
     backText: {
         fontSize: 18,
-        color: '#2C3E50',
-        fontWeight: 'bold',
+        color: '#5A8BC4',
+        fontWeight: '600',
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#1A1A1A',
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#C41E3A', // Deep red color
         textAlign: 'center',
-        marginBottom: 40,
+        marginBottom: 30,
+        fontStyle: 'italic',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     playButton: {
         alignSelf: 'center',
-        marginBottom: 10,
+        marginBottom: 8,
     },
     playIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 3,
-        borderColor: '#4A90D9',
-        backgroundColor: 'white',
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#7CC5E8',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 4,
+        borderColor: '#5AADE2',
+        shadowColor: '#5AADE2',
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 0,
+        elevation: 3,
     },
     playIcon: {
-        fontSize: 32,
-        color: '#4A90D9',
-        marginLeft: 5,
+        fontSize: 28,
+        color: '#2E6B8A',
+        marginLeft: 4,
     },
     playText: {
         fontSize: 16,
-        color: '#666',
+        color: '#333',
         textAlign: 'center',
-        marginBottom: 40,
+        marginBottom: 30,
+        fontWeight: '500',
     },
     optionsContainer: {
         flex: 1,
-        paddingHorizontal: 30,
+        paddingHorizontal: 25,
     },
     optionsGrid: {
         flexDirection: 'row',
@@ -287,32 +363,42 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         gap: 20,
     },
-    optionCard: {
-        width: (width - 80) / 2,
+    stickyNote: {
+        width: (width - 70) / 2,
         aspectRatio: 1,
-        backgroundColor: 'white',
-        borderRadius: 16,
+        borderRadius: 4,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 3,
+        position: 'relative',
+        // Sticky note shadow
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
+        shadowOffset: { width: 3, height: 4 },
+        shadowOpacity: 0.25,
         shadowRadius: 4,
-        elevation: 3,
+        elevation: 5,
+    },
+    stickyFold: {
+        position: 'absolute',
+        right: -1,
+        bottom: -1,
+        width: 0,
+        height: 0,
+        borderStyle: 'solid',
+        borderWidth: 18,
+        borderTopColor: 'transparent',
+        borderRightColor: '#F8F4E8', // Match background
+        borderLeftColor: 'transparent',
     },
     correctCard: {
-        backgroundColor: '#E8F5E9',
-        borderColor: '#4CAF50',
+        backgroundColor: '#C8E6C9',
     },
     wrongCard: {
-        backgroundColor: '#FFEBEE',
-        borderColor: '#D9534F',
+        backgroundColor: '#FFCDD2',
     },
     letterText: {
-        fontSize: 64,
-        fontWeight: 'bold',
-        color: '#37474F',
+        fontSize: 60,
+        fontWeight: '900',
+        color: '#333',
     },
     correctLetterText: {
         color: '#2E7D32',
@@ -328,13 +414,12 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     progressContainer: {
-        paddingVertical: 25,
+        paddingVertical: 20,
         alignItems: 'center',
     },
     progressText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#2C3E50',
+        color: '#333',
     },
 });
-

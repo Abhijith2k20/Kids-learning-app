@@ -18,14 +18,23 @@ import {
     useAudioRecorderState
 } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { usePointsStore } from '../store/pointsStore';
 import { PointsBadge } from '../components/PointsBadge';
 import { RewardAnimation } from '../components/RewardAnimation';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // All letters A-Z
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+// Sticky note colors matching the homophones design
+const STICKY_COLORS = [
+    { bg: '#FFF59D', shadow: '#E6DC8D' }, // Yellow
+    { bg: '#A5D6A7', shadow: '#8FC291' }, // Green
+    { bg: '#F48FB1', shadow: '#DB7FA0' }, // Pink
+    { bg: '#FFCC80', shadow: '#E6B770' }, // Orange
+];
 
 // AssemblyAI API Key - loaded from environment variable
 const ASSEMBLYAI_API_KEY = process.env.EXPO_PUBLIC_ASSEMBLYAI_API_KEY || '';
@@ -54,6 +63,17 @@ export const SpeakLetterScreen = () => {
 
     const currentLetter = LETTERS[currentLetterIndex];
     const isLastLetter = currentLetterIndex === LETTERS.length - 1;
+
+    // Render horizontal lines for notebook effect
+    const renderNotebookLines = () => {
+        const lines = [];
+        for (let i = 0; i < 35; i++) {
+            lines.push(
+                <View key={i} style={styles.notebookLine} />
+            );
+        }
+        return lines;
+    };
 
     // Load saved progress and request permissions
     useEffect(() => {
@@ -337,7 +357,7 @@ export const SpeakLetterScreen = () => {
             .toUpperCase()
             .trim()
             // Remove punctuation and special characters
-            .replace(/[.,!?'";\-:()]/g, '')
+            .replace(/[.,!?'";:()\-]/g, '')
             // Remove extra spaces
             .replace(/\s+/g, ' ')
             .trim();
@@ -481,6 +501,10 @@ export const SpeakLetterScreen = () => {
             useNativeDriver: true,
         }).start();
 
+        // Game-like haptic celebration pattern
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
+        setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
         addPoints(10);
 
         setTimeout(() => {
@@ -529,24 +553,34 @@ export const SpeakLetterScreen = () => {
             await saveProgress(LETTERS[nextIndex]);
         } else {
             await saveProgress('A');
-            router.back();
+            router.replace('/');
         }
     };
 
     if (isLoading) {
         return (
             <View style={[styles.container, styles.centered]}>
-                <ActivityIndicator size="large" color="#9C27B0" />
+                {/* Notebook background */}
+                <View style={styles.notebookBackground}>
+                    {renderNotebookLines()}
+                </View>
+                <ActivityIndicator size="large" color="#7B5BA6" />
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
+            {/* Notebook background with lines */}
+            <View style={styles.notebookBackground}>
+                {renderNotebookLines()}
+            </View>
+
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Text style={styles.backArrow}>←</Text>
+                    <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
                 <PointsBadge />
             </View>
@@ -554,12 +588,13 @@ export const SpeakLetterScreen = () => {
             {/* Main Content */}
             <View style={styles.content}>
                 {/* Instruction */}
-                <Text style={styles.instruction}>Say this letter!</Text>
+                <Text style={styles.instruction}>Say this letter!  </Text>
 
-                {/* Letter Display */}
+                {/* Letter Display - Sticky note card */}
                 <Animated.View
                     style={[
-                        styles.letterContainer,
+                        styles.letterCard,
+                        { backgroundColor: STICKY_COLORS[currentLetterIndex % STICKY_COLORS.length].bg },
                         {
                             transform: [
                                 { scale: successScaleAnim },
@@ -571,17 +606,13 @@ export const SpeakLetterScreen = () => {
                     <Text style={styles.letterText}>{currentLetter}</Text>
                 </Animated.View>
 
-                {/* Progress Indicator */}
-                <Text style={styles.progress}>
-                    Letter {currentLetterIndex + 1} of {LETTERS.length}
-                </Text>
-
                 {/* Microphone Button */}
                 <View style={styles.micContainer}>
                     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                         <TouchableOpacity
                             style={[
                                 styles.micButton,
+                                { backgroundColor: STICKY_COLORS[currentLetterIndex % STICKY_COLORS.length].shadow },
                                 recorderState.isRecording && styles.micButtonRecording,
                                 isProcessing && styles.micButtonProcessing,
                             ]}
@@ -624,12 +655,19 @@ export const SpeakLetterScreen = () => {
                 </Animated.View>
             </View>
 
+            {/* Progress - at bottom */}
+            <View style={styles.progressContainer}>
+                <Text style={styles.progressText}>
+                    {currentLetterIndex + 1}/{LETTERS.length}
+                </Text>
+            </View>
+
             {/* Reward Animation */}
             <RewardAnimation
                 visible={showReward}
                 onNext={handleNextLetter}
                 message={isLastLetter ? "All Letters Complete!" : "Great Job!"}
-                buttonLabel={isLastLetter ? "Go to Homepage" : "Next Letter ➡"}
+                buttonLabel={isLastLetter ? "Homepage" : "Next ➡"}
             />
         </View>
     );
@@ -638,8 +676,22 @@ export const SpeakLetterScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F3E5F5',
-        paddingTop: 50,
+        backgroundColor: '#F8F4E8', // Cream/off-white paper color
+    },
+    notebookBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingTop: 100,
+    },
+    notebookLine: {
+        height: 1,
+        backgroundColor: '#B8D4E8',
+        marginBottom: 26,
+        marginLeft: 0,
+        opacity: 0.7,
     },
     centered: {
         justifyContent: 'center',
@@ -649,70 +701,90 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 20,
+        paddingHorizontal: 15,
+        paddingTop: 50,
+        marginBottom: 10,
+        zIndex: 10,
     },
     backButton: {
-        padding: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+    },
+    backArrow: {
+        fontSize: 20,
+        color: '#5A8BC4',
+        fontWeight: 'bold',
+        marginRight: 4,
     },
     backText: {
         fontSize: 18,
-        color: '#7B1FA2',
-        fontWeight: 'bold',
+        color: '#5A8BC4',
+        fontWeight: '600',
     },
     content: {
         flex: 1,
         alignItems: 'center',
         paddingHorizontal: 20,
+        paddingTop: 10,
     },
     instruction: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#7B1FA2',
-        marginBottom: 30,
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#C41E3A', // Deep red color
+        marginBottom: 25,
         textAlign: 'center',
+        fontStyle: 'italic',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
-    letterContainer: {
-        width: width * 0.6,
-        height: width * 0.6,
-        backgroundColor: 'white',
-        borderRadius: 30,
+    letterCard: {
+        width: width * 0.65,
+        height: width * 0.65,
+        borderRadius: 4,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#9C27B0',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 10,
+        marginTop: 20,
         marginBottom: 20,
-        borderWidth: 4,
-        borderColor: '#CE93D8',
+        // Sticky note shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 4, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 6,
     },
     letterText: {
-        fontSize: 150,
-        fontWeight: 'bold',
-        color: '#7B1FA2',
+        fontSize: 140,
+        fontWeight: '900',
+        color: '#333',
+        textShadowColor: 'rgba(0, 0, 0, 0.15)',
+        textShadowOffset: { width: 2, height: 2 },
+        textShadowRadius: 0,
     },
-    progress: {
-        fontSize: 16,
-        color: '#9C27B0',
-        marginBottom: 30,
-        fontWeight: '600',
+    progressContainer: {
+        paddingVertical: 20,
+        alignItems: 'center',
+    },
+    progressText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
     },
     micContainer: {
         alignItems: 'center',
+        marginTop: 40,
     },
     micButton: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#9C27B0',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#7B1FA2',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
         elevation: 8,
     },
     micButtonRecording: {
@@ -722,16 +794,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#757575',
     },
     micIcon: {
-        fontSize: 40,
+        fontSize: 36,
     },
     micHint: {
-        marginTop: 15,
+        marginTop: 12,
         fontSize: 16,
-        color: '#9C27B0',
-        fontWeight: '500',
+        color: '#333',
+        fontWeight: '600',
     },
     feedbackContainer: {
-        marginTop: 30,
+        marginTop: 25,
         alignItems: 'center',
     },
     feedbackCorrect: {

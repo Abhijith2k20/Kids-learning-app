@@ -14,7 +14,7 @@ import { usePointsStore } from '../store/pointsStore';
 import { PointsBadge } from '../components/PointsBadge';
 import { RewardAnimation } from '../components/RewardAnimation';
 import Svg, { Path } from 'react-native-svg';
-import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import { AlphabetSVG } from '../components/AlphabetSVG';
 import { useDrawing } from '../hooks/useDrawing';
 import { useTraceValidation } from '../hooks/useTraceValidation';
@@ -23,7 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 
 // Canvas dimensions - fixed aspect ratio 260:300 roughly
-const CANVAS_WIDTH = width * 0.9;
+const CANVAS_WIDTH = width * 0.85;
 const CANVAS_HEIGHT = CANVAS_WIDTH * (300 / 260); // Maintain aspect ratio of SVG viewBox
 
 const ALPHABETS = [
@@ -38,8 +38,7 @@ export const TraceScreen = () => {
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false); // Track if current letter is done
-    const [feedbackMsg, setFeedbackMsg] = useState('Trace the letter!');
-    const [sound, setSound] = useState();
+    const [feedbackMsg, setFeedbackMsg] = useState('Follow the outline ✏️');
 
     const { paths, currentPath, onDrawingStart, onDrawingActive, onDrawingEnd: originalOnDrawingEnd, clearDrawing } = useDrawing();
     const { validateTrace } = useTraceValidation();
@@ -49,6 +48,17 @@ export const TraceScreen = () => {
     const shakeAnim = useRef(new Animated.Value(0)).current;
 
     const currentLetter = ALPHABETS[currentIndex];
+
+    // Render horizontal lines for notebook effect
+    const renderNotebookLines = () => {
+        const lines = [];
+        for (let i = 0; i < 35; i++) {
+            lines.push(
+                <View key={i} style={styles.notebookLine} />
+            );
+        }
+        return lines;
+    };
 
     // Load saved progress
     useEffect(() => {
@@ -78,23 +88,6 @@ export const TraceScreen = () => {
         }
     };
 
-    // Load sound
-    async function playSuccessSound() {
-        try {
-            const { sound } = await Audio.Sound.createAsync(
-                { uri: 'https://www.soundjay.com/buttons/sounds/button-3.mp3' }
-            );
-            setSound(sound);
-            await sound.playAsync();
-        } catch (error) {
-            console.log('Error playing sound', error);
-        }
-    }
-
-    useEffect(() => {
-        return sound ? () => { sound.unloadAsync(); } : undefined;
-    }, [sound]);
-
     // Validation wrapper
     const handleDrawingEnd = () => {
         originalOnDrawingEnd();
@@ -117,7 +110,10 @@ export const TraceScreen = () => {
         if (isValid && !isCompleted) {
             setIsCompleted(true);
             setFeedbackMsg('Great Job! 🎉');
-            playSuccessSound();
+            // Game-like haptic celebration pattern
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
+            setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
             animateSuccess();
 
             // Add points and show reward
@@ -185,7 +181,7 @@ export const TraceScreen = () => {
     const resetState = () => {
         clearDrawing();
         setIsCompleted(false);
-        setFeedbackMsg('Trace the letter!');
+        setFeedbackMsg('Follow the outline ✏️');
         setShowReward(false); // Hide reward
         scaleAnim.setValue(1);
         shakeAnim.setValue(0);
@@ -203,30 +199,41 @@ export const TraceScreen = () => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
+                {/* Notebook background with lines */}
+                <View style={styles.notebookBackground}>
+                    {renderNotebookLines()}
+                </View>
+
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Text style={styles.backText}>← Back</Text>
+                        <Text style={styles.backArrow}>←</Text>
+                        <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
-
-
                     <PointsBadge />
                 </View>
 
-                <View style={styles.subHeader}>
-                    <Text style={styles.title}>{feedbackMsg}</Text>
-                    <Animated.View style={{ transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] }}>
-                        <Text style={[styles.letterDisplay, isCompleted && styles.letterSuccess]}>
-                            {currentLetter}
-                        </Text>
-                    </Animated.View>
-                </View>
+                {/* Title */}
+                <Text style={styles.mainTitle}>Trace the letter!</Text>
+
+                {/* Feedback Text */}
+                <Animated.View style={[
+                    styles.feedbackContainer,
+                    { transform: [{ translateX: shakeAnim }] }
+                ]}>
+                    <Text style={[
+                        styles.feedbackText,
+                        isCompleted && styles.feedbackSuccess
+                    ]}>
+                        {feedbackMsg}
+                    </Text>
+                </Animated.View>
 
                 <RewardAnimation
                     visible={showReward}
                     onNext={currentIndex === ALPHABETS.length - 1 ? handleFinish : handleRewardNext}
                     message={currentIndex === ALPHABETS.length - 1 ? "All Letters Done!" : "Great Job!"}
-                    buttonLabel={currentIndex === ALPHABETS.length - 1 ? "Go to Homepage" : "Next Letter ➡"}
+                    buttonLabel={currentIndex === ALPHABETS.length - 1 ? "Homepage" : "Next ➡"}
                 />
 
                 {/* Drawing Area */}
@@ -291,7 +298,7 @@ export const TraceScreen = () => {
                         style={[styles.button, styles.clearButton]}
                         onPress={handleClear}
                     >
-                        <Text style={styles.buttonText}>Clear</Text>
+                        <Text style={styles.clearButtonText}>Clear</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -302,50 +309,78 @@ export const TraceScreen = () => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFF9E6',
-        // Padding is handled by SafeAreaView automatically or we can add extra if needed
+        backgroundColor: '#F8F4E8', // Cream/off-white paper color
     },
     container: {
         flex: 1,
-        backgroundColor: '#FFF9E6',
+        backgroundColor: '#F8F4E8',
+    },
+    notebookBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingTop: 100,
+    },
+    notebookLine: {
+        height: 1,
+        backgroundColor: '#B8D4E8',
+        marginBottom: 26,
+        marginLeft: 0,
+        opacity: 0.5,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 15,
         paddingTop: 10,
-    },
-    subHeader: {
-        alignItems: 'center',
-        paddingVertical: 10,
+        zIndex: 20,
     },
     backButton: {
-        padding: 5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+    },
+    backArrow: {
+        fontSize: 20,
+        color: '#5A8BC4',
+        fontWeight: 'bold',
+        marginRight: 4,
     },
     backText: {
         fontSize: 18,
-        color: '#2C3E50',
+        color: '#5A8BC4',
+        fontWeight: '600',
     },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#2C3E50',
-        marginBottom: 10,
+    mainTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#C41E3A', // Deep red color
+        textAlign: 'center',
+        marginTop: 10,
+        marginBottom: 15,
+        fontStyle: 'italic',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
-    letterDisplay: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        color: '#FF6B6B',
-        backgroundColor: '#FFE66D',
-        paddingHorizontal: 30,
-        paddingVertical: 10,
-        borderRadius: 15,
-        overflow: 'hidden',
+    feedbackContainer: {
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 15,
     },
-    letterSuccess: {
-        backgroundColor: '#A8E6CF',
+    feedbackText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#666',
+        textAlign: 'center',
+    },
+    feedbackSuccess: {
         color: '#2E7D32',
+        fontSize: 20,
+        fontWeight: 'bold',
     },
     drawingArea: {
         flex: 1,
@@ -356,6 +391,9 @@ const styles = StyleSheet.create({
         position: 'relative',
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: '#FAF8F0',
+        borderRadius: 10,
+        padding: 10,
     },
     alphabetContainer: {
         position: 'absolute',
@@ -365,26 +403,41 @@ const styles = StyleSheet.create({
     },
     controls: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingHorizontal: 20,
-        paddingVertical: 30,
-        gap: 10,
+        justifyContent: 'center',
+        paddingHorizontal: 40,
+        paddingVertical: 20,
+        gap: 15,
     },
     button: {
         flex: 1,
-        paddingVertical: 15,
-        borderRadius: 15,
+        paddingVertical: 14,
+        borderRadius: 25,
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.15,
         shadowRadius: 3,
+        elevation: 3,
     },
-    previousButton: { backgroundColor: '#A8E6CF' },
-    nextButton: { backgroundColor: '#FFD93D' },
-    clearButton: { backgroundColor: '#FF6B6B' },
-    buttonDisabled: { backgroundColor: '#D3D3D3', opacity: 0.5 },
-    buttonText: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50' },
+    previousButton: {
+        backgroundColor: '#A8D8C8', // Mint/teal color
+    },
+    clearButton: {
+        backgroundColor: '#E8726E', // Coral/salmon color
+    },
+    buttonDisabled: {
+        backgroundColor: '#D3D3D3',
+        opacity: 0.5
+    },
+    buttonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    clearButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#FFF',
+    },
 });
